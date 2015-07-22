@@ -1,11 +1,13 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // NintendoSpy Firmware for Arduino
 // v1.0.1
-// Written by jaburns
+// Written by jaburns, athairus
 
+// Footswitch button pin
+#define FOOTSWITCH_PIN 2
 
 // ---------- Uncomment one of these options to select operation mode --------------
-//#define MODE_GC
+#define MODE_GC
 //#define MODE_N64
 //#define MODE_SNES
 //#define MODE_NES
@@ -46,12 +48,14 @@
 #define ONE    '1'  // Use an ASCII one to represent a bit with value 1.  This makes Arduino debugging easier.
 #define SPLIT '\n'  // Use a new-line character to split up the controller state packets.
 
-
-
+#define BUTTON_PRESS   'b'
+#define BUTTON_RELEASE 'r'
 
 // Declare some space to store the bits we read from a controller.
 unsigned char rawData[ 128 ];
 
+// A simple bool that holds the footswitch state
+unsigned int buttonState;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // General initialization, just sets all pins to input and starts serial communication.
@@ -62,6 +66,9 @@ void setup()
     PORTC = 0xFF; // Set the pull-ups on the port we use to check operation mode.
     DDRC  = 0x00;
     Serial.begin( 115200 );
+    buttonState = 0;
+    pinMode(FOOTSWITCH_PIN, INPUT);
+    pinMode(12, OUTPUT);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,6 +188,12 @@ inline void loop_GC()
     noInterrupts();
     read_oneWire< GC_PIN >( GC_PREFIX + GC_BITCOUNT );
     interrupts();
+    if( rawData[8*3+8] ) {
+      digitalWrite(12, HIGH);
+    }
+    else {
+      digitalWrite(12, LOW);
+    }
     sendRawData( GC_PREFIX , GC_BITCOUNT );
 }
 
@@ -218,6 +231,16 @@ inline void loop_NES()
     sendRawData( 0 , NES_BITCOUNT );
 }
 
+inline void loop_footswitch()
+{
+  noInterrupts();
+  buttonState = digitalRead( FOOTSWITCH_PIN );
+  interrupts();
+  Serial.write( buttonState ? BUTTON_PRESS : BUTTON_RELEASE );
+  Serial.write( SPLIT );
+  
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arduino sketch main loop definition.
 void loop()
@@ -241,4 +264,5 @@ void loop()
         loop_NES();
     }
 #endif
+// loop_footswitch();
 }
